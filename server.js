@@ -21,8 +21,9 @@ app.use(express.static(path.join(__dirname, 'client/build')));
 
 // Function to load a random position from sharded files
 const getRandomPosition = () => {
-  // Generate random shard number (000 to 102)
-  const shardNumber = Math.floor(Math.random() * 103).toString().padStart(3, '0');
+  // Generate random shard number (only 100, 101, 102)
+  const availableShards = ['100', '101', '102'];
+  const shardNumber = availableShards[Math.floor(Math.random() * availableShards.length)];
   const shardPath = path.join(__dirname, 'client', 'public', 'data', 'shards', `positions-${shardNumber}.json`);
   
   console.log(`🎲 Attempting to load shard: positions-${shardNumber}.json`);
