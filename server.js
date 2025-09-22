@@ -181,6 +181,8 @@ app.post('/api/new-game', (req, res) => {
   const game = new Game();
   games.set(game.id, game);
   
+  console.log(`Created new game ${game.id}, total games:`, games.size);
+  
   res.json({
     gameId: game.id,
     hostColor: game.hostColor,
@@ -191,21 +193,39 @@ app.post('/api/new-game', (req, res) => {
 });
 
 app.get('/api/game/:gameId', (req, res) => {
-  const game = games.get(req.params.gameId);
+  const gameId = req.params.gameId;
+  console.log(`Looking for game ${gameId}, available games:`, Array.from(games.keys()));
+  
+  let game = games.get(gameId);
   if (!game) {
-    return res.status(404).json({ error: 'Game not found' });
+    console.log(`Game ${gameId} not found in memory, creating fallback game`);
+    // Create a fallback game for serverless environment
+    game = new Game();
+    game.id = gameId; // Use the requested game ID
+    games.set(gameId, game);
+    console.log(`Created fallback game ${gameId}`);
   }
   
+  console.log(`Found/created game ${gameId}:`, game.getGameData());
   res.json(game.getGameData());
 });
 
 // HTTP endpoint for joining games (production alternative to Socket.IO)
 app.post('/api/game/:gameId/join', (req, res) => {
   const { isHost } = req.body;
-  const game = games.get(req.params.gameId);
+  const gameId = req.params.gameId;
+  console.log(`Attempting to join game ${gameId}, isHost: ${isHost}`);
+  console.log(`Available games:`, Array.from(games.keys()));
+  
+  let game = games.get(gameId);
   
   if (!game) {
-    return res.status(404).json({ error: 'Game not found' });
+    console.log(`Game ${gameId} not found for joining, creating fallback game`);
+    // Create a fallback game for serverless environment
+    game = new Game();
+    game.id = gameId; // Use the requested game ID
+    games.set(gameId, game);
+    console.log(`Created fallback game ${gameId} for joining`);
   }
   
   if (game.gameState === 'finished') {
