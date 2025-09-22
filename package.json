@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "cd client && npm start",
-    "dev": "cd client && npm run dev",
+    "dev": "concurrently \"node dev-server.js\" \"cd client && npm run dev\"",
+    "dev:api": "node dev-server.js",
+    "dev:client": "cd client && npm run dev",
     "build": "cd client && npm install && npm run build",
     "install-client": "cd client && npm install",
     "test-api": "node test-api.js",
@@ -13,7 +15,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
-    "dotenv": "^17.2.2"
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0"
   },
   "keywords": [
     "chess",

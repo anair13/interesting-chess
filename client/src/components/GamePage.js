@@ -18,7 +18,18 @@ const GamePage = () => {
   const [error, setError] = useState('');
   const [shareLink, setShareLink] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
-  const [sessionId] = useState(`session-${Date.now()}-${Math.random()}`);
+  // Create a persistent session ID for this game session
+  const [sessionId] = useState(() => {
+    const stored = localStorage.getItem(`chess-session-${gameId}`);
+    if (stored) {
+      console.log('🔑 Using stored session ID:', stored);
+      return stored;
+    }
+    const newSessionId = `session-${Date.now()}-${Math.random()}`;
+    localStorage.setItem(`chess-session-${gameId}`, newSessionId);
+    console.log('🔑 Created new session ID:', newSessionId);
+    return newSessionId;
+  });
 
   // Initialize game and join
   useEffect(() => {
@@ -234,6 +245,7 @@ const GamePage = () => {
       });
 
       // Send move to server
+      console.log('🔑 Sending move with session ID:', sessionId);
       const response = await fetch(`/api/games/${gameId}/move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
