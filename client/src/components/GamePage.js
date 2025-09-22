@@ -28,7 +28,17 @@ const GamePage = () => {
       : 'http://localhost:5000';
     
     console.log('🔌 Connecting to Socket.IO at:', socketUrl);
-    const newSocket = io(socketUrl);
+    
+    // Configure Socket.IO for serverless environment
+    const socketOptions = process.env.NODE_ENV === 'production' 
+      ? {
+          transports: ['polling'], // Only use polling on Vercel
+          upgrade: false,
+          rememberUpgrade: false
+        }
+      : {}; // Use default transports in development
+    
+    const newSocket = io(socketUrl, socketOptions);
     setSocket(newSocket);
 
     return () => {
