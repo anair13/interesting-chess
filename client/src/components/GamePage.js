@@ -20,42 +20,97 @@ const GamePage = () => {
   const [shareLink, setShareLink] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
 
-  // Initialize socket connection
+  // Initialize connection (HTTP polling instead of Socket.IO in production)
   useEffect(() => {
-    // Use the current domain in production, localhost in development
-    const socketUrl = process.env.NODE_ENV === 'production' 
-      ? window.location.origin 
-      : 'http://localhost:5000';
-    
-    console.log('🔌 Connecting to Socket.IO at:', socketUrl);
-    
-    // Configure Socket.IO for serverless environment
-    const socketOptions = process.env.NODE_ENV === 'production' 
-      ? {
-          transports: ['polling'], // Only use polling on Vercel
-          upgrade: false,
-          rememberUpgrade: false
-        }
-      : {}; // Use default transports in development
-    
-    const newSocket = io(socketUrl, socketOptions);
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.close();
-    };
+    if (process.env.NODE_ENV === 'production') {
+      // Use HTTP polling in production instead of Socket.IO
+      console.log('🔌 Using HTTP polling for production');
+      setSocket({ emit: () => {}, on: () => {}, off: () => {} }); // Mock socket
+    } else {
+      // Use Socket.IO in development
+      const socketUrl = 'http://localhost:5000';
+      console.log('🔌 Connecting to Socket.IO at:', socketUrl);
+      const newSocket = io(socketUrl);
+      setSocket(newSocket);
+      
+      return () => {
+        newSocket.close();
+      };
+    }
   }, []);
 
   // Join game when socket is ready
   useEffect(() => {
     if (socket && gameId) {
-      socket.emit('join-game', { gameId, isHost });
+      if (process.env.NODE_ENV === 'production') {
+        // HTTP polling approach for production
+        joinGameHTTP();
+      } else {
+        // Socket.IO approach for development
+        socket.emit('join-game', { gameId, isHost });
+      }
       
       // Set share link
       const currentUrl = window.location.origin + window.location.pathname;
       setShareLink(currentUrl);
     }
   }, [socket, gameId, isHost]);
+
+  // HTTP polling functions for production
+  const joinGameHTTP = async () => {
+    try {
+      const response = await fetch(`/api/game/${gameId}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isHost })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setGameData(data.gameData);
+        setPlayerColor(data.playerColor);
+        setGameState('joined');
+        
+        const newGame = new Chess(data.gameData.currentFen);
+        setGame(newGame);
+        
+        // Start polling for updates
+        startPolling();
+      }
+    } catch (error) {
+      console.error('Failed to join game:', error);
+      setError('Failed to join game');
+    }
+  };
+
+  const startPolling = () => {
+    if (process.env.NODE_ENV !== 'production') return;
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/game/${gameId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setGameData(data);
+          
+          // Update game state if FEN changed
+          if (data.currentFen !== game.fen()) {
+            const newGame = new Chess(data.currentFen);
+            setGame(newGame);
+          }
+          
+          if (data.gameState === 'active') {
+            setGameState('active');
+          }
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    // Cleanup on unmount
+    return () => clearInterval(pollInterval);
+  };
 
   // Socket event listeners
   useEffect(() => {
@@ -241,16 +296,34 @@ const GamePage = () => {
       });
 
       // Send move to server
-      socket.emit('make-move', {
-        gameId,
-        move: {
-          from: sourceSquare,
-          to: targetSquare,
-          promotion: actualMove.promotion,
-          fen: game.fen(),
-          san: actualMove.san
-        }
-      });
+      if (process.env.NODE_ENV === 'production') {
+        // HTTP request for production
+        fetch(`/api/game/${gameId}/move`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            move: {
+              from: sourceSquare,
+              to: targetSquare,
+              promotion: actualMove.promotion,
+              fen: game.fen(),
+              san: actualMove.san
+            }
+          })
+        }).catch(error => console.error('Move error:', error));
+      } else {
+        // Socket.IO for development
+        socket.emit('make-move', {
+          gameId,
+          move: {
+            from: sourceSquare,
+            to: targetSquare,
+            promotion: actualMove.promotion,
+            fen: game.fen(),
+            san: actualMove.san
+          }
+        });
+      }
 
       return true;
     } catch (error) {

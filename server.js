@@ -197,6 +197,50 @@ app.get('/api/game/:gameId', (req, res) => {
   res.json(game.getGameData());
 });
 
+// HTTP endpoint for joining games (production alternative to Socket.IO)
+app.post('/api/game/:gameId/join', (req, res) => {
+  const { isHost } = req.body;
+  const game = games.get(req.params.gameId);
+  
+  if (!game) {
+    return res.status(404).json({ error: 'Game not found' });
+  }
+  
+  if (game.gameState === 'finished') {
+    return res.status(400).json({ error: 'Game has ended' });
+  }
+  
+  // Check if game is full
+  if (Object.keys(game.players).length >= 2) {
+    return res.status(400).json({ error: 'Game is full' });
+  }
+  
+  const playerColor = game.addPlayer('http-player-' + Date.now(), isHost);
+  
+  res.json({
+    gameData: game.getGameData(),
+    playerColor
+  });
+});
+
+// HTTP endpoint for making moves (production alternative to Socket.IO)
+app.post('/api/game/:gameId/move', (req, res) => {
+  const { move } = req.body;
+  const game = games.get(req.params.gameId);
+  
+  if (!game) {
+    return res.status(404).json({ error: 'Game not found' });
+  }
+  
+  // For HTTP version, we'll accept moves without strict socket validation
+  // In a real app, you'd want proper player authentication
+  if (game.makeMove(move, 'http-player')) {
+    res.json({ success: true, gameState: game.getGameData() });
+  } else {
+    res.status(400).json({ error: 'Invalid move' });
+  }
+});
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
