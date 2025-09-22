@@ -1,0 +1,324 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Landing Page Styles */
+.landing-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+}
+
+.landing-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.landing-subtitle {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 3rem;
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+.start-game-btn {
+  background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+  color: white;
+  border: none;
+  padding: 1rem 2.5rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.start-game-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.start-game-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Game Page Styles */
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.game-header {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  width: 100%;
+}
+
+.game-title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.game-description {
+  font-size: 1rem;
+  opacity: 0.9;
+  margin-bottom: 1rem;
+}
+
+.game-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.color-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.color-indicator.white {
+  background: white;
+}
+
+.color-indicator.black {
+  background: #333;
+}
+
+.turn-indicator {
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.game-board-container {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 2rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.game-status {
+  margin-top: 2rem;
+  text-align: center;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.share-link-container {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  text-align: center;
+  color: white;
+  max-width: 600px;
+  width: 100%;
+}
+
+.share-link-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.share-link-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.copy-link-btn {
+  background: linear-gradient(45deg, #10ac84, #00d2d3);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.copy-link-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.copy-link-btn:active {
+  transform: translateY(0);
+}
+
+.error-message {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+  text-align: center;
+  font-weight: 500;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  color: white;
+  font-size: 1.2rem;
+}
+
+/* Chess board piece dragging fix */
+.game-board-container [data-piece] {
+  cursor: grab;
+}
+
+.game-board-container [data-piece]:active {
+  cursor: grabbing;
+}
+
+/* Fix for piece dragging offset - more specific targeting */
+#chess-board [data-piece] {
+  cursor: grab !important;
+}
+
+#chess-board [data-piece]:active {
+  cursor: grabbing !important;
+}
+
+/* Override react-chessboard drag layer positioning */
+.game-board-container .drag-layer {
+  pointer-events: none;
+  z-index: 1000 !important;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ensure pieces are properly centered during drag */
+.game-board-container [data-testid="piece"] {
+  transform-origin: center center;
+  position: relative;
+}
+
+/* Fix for react-dnd drag preview offset */
+.game-board-container .piece-drag-preview {
+  transform: translate(-50%, -50%);
+}
+
+/* Additional drag fixes for react-chessboard */
+#chess-board .drag-layer {
+  z-index: 1000 !important;
+}
+
+#chess-board [data-piece] {
+  cursor: grab !important;
+  position: relative;
+}
+
+#chess-board [data-piece]:active {
+  cursor: grabbing !important;
+}
+
+/* Force proper drag layer positioning */
+.game-board-container [role="presentation"] {
+  z-index: 1000 !important;
+}
+
+/* Specific fix for the 400px offset issue */
+.game-board-container [style*="position: fixed"][style*="pointer-events: none"] img {
+  transform: translate(-50%, -50%);
+}
+
+/* Ensure drag layer doesn't have unexpected positioning */
+.game-board-container > div > div[style*="position: fixed"] {
+  transform: translate(-50%, -50%);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .landing-title {
+    font-size: 2.5rem;
+  }
+  
+  .landing-subtitle {
+    font-size: 1rem;
+  }
+  
+  .game-container {
+    padding: 1rem;
+  }
+  
+  .game-board-container {
+    padding: 1rem;
+  }
+  
+  .game-info {
+    flex-direction: column;
+    text-align: center;
+  }
+}
