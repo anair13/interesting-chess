@@ -39,25 +39,8 @@ const GamePage = () => {
     }
   }, []);
 
-  // Join game when socket is ready
-  useEffect(() => {
-    if (socket && gameId) {
-      if (process.env.NODE_ENV === 'production') {
-        // HTTP polling approach for production
-        joinGameHTTP();
-      } else {
-        // Socket.IO approach for development
-        socket.emit('join-game', { gameId, isHost });
-      }
-      
-      // Set share link
-      const currentUrl = window.location.origin + window.location.pathname;
-      setShareLink(currentUrl);
-    }
-  }, [socket, gameId, isHost]);
-
   // HTTP polling functions for production
-  const joinGameHTTP = async () => {
+  const joinGameHTTP = useCallback(async () => {
     try {
       const response = await fetch(`/api/game/${gameId}/join`, {
         method: 'POST',
@@ -75,42 +58,55 @@ const GamePage = () => {
         setGame(newGame);
         
         // Start polling for updates
-        startPolling();
+        if (process.env.NODE_ENV === 'production') {
+          const pollInterval = setInterval(async () => {
+            try {
+              const response = await fetch(`/api/game/${gameId}`);
+              if (response.ok) {
+                const data = await response.json();
+                setGameData(data);
+                
+                // Update game state if FEN changed
+                if (data.currentFen !== game.fen()) {
+                  const newGame = new Chess(data.currentFen);
+                  setGame(newGame);
+                }
+                
+                if (data.gameState === 'active') {
+                  setGameState('active');
+                }
+              }
+            } catch (error) {
+              console.error('Polling error:', error);
+            }
+          }, 2000);
+          
+          // Cleanup on unmount
+          return () => clearInterval(pollInterval);
+        }
       }
     } catch (error) {
       console.error('Failed to join game:', error);
       setError('Failed to join game');
     }
-  };
+  }, [gameId, isHost, game]);
 
-  const startPolling = () => {
-    if (process.env.NODE_ENV !== 'production') return;
-    
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/game/${gameId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setGameData(data);
-          
-          // Update game state if FEN changed
-          if (data.currentFen !== game.fen()) {
-            const newGame = new Chess(data.currentFen);
-            setGame(newGame);
-          }
-          
-          if (data.gameState === 'active') {
-            setGameState('active');
-          }
-        }
-      } catch (error) {
-        console.error('Polling error:', error);
+  // Join game when socket is ready
+  useEffect(() => {
+    if (socket && gameId) {
+      if (process.env.NODE_ENV === 'production') {
+        // HTTP polling approach for production
+        joinGameHTTP();
+      } else {
+        // Socket.IO approach for development
+        socket.emit('join-game', { gameId, isHost });
       }
-    }, 2000); // Poll every 2 seconds
-    
-    // Cleanup on unmount
-    return () => clearInterval(pollInterval);
-  };
+      
+      // Set share link
+      const currentUrl = window.location.origin + window.location.pathname;
+      setShareLink(currentUrl);
+    }
+  }, [socket, gameId, isHost, joinGameHTTP]);
 
   // Socket event listeners
   useEffect(() => {
@@ -206,11 +202,15 @@ const GamePage = () => {
       console.log('🔄 Resynced game with FEN:', gameData.currentFen);
       console.log('🔄 New game turn:', syncedGame.turn());
       
-      // Try the move with the synced game
-      const tempGame = new Chess(gameData.currentFen);
+      // After resyncing, check if it's still the player's turn
+      if (syncedGame.turn() !== (playerColor === 'white' ? 'w' : 'b')) {
+        console.log('❌ Not your turn after resync');
+        return false;
+      }
       
+      // Try the move with the synced game directly
       try {
-        let move = tempGame.move({
+        let move = syncedGame.move({
           from: sourceSquare,
           to: targetSquare
         });
@@ -218,7 +218,7 @@ const GamePage = () => {
         if (move === null && piece.toLowerCase().includes('p')) {
           const toRank = targetSquare[1];
           if ((playerColor === 'white' && toRank === '8') || (playerColor === 'black' && toRank === '1')) {
-            move = tempGame.move({
+            move = syncedGame.move({
               from: sourceSquare,
               to: targetSquare,
               promotion: 'q'
@@ -228,28 +228,41 @@ const GamePage = () => {
 
         if (move === null) {
           console.log('❌ Invalid move after resync');
-          console.log('❌ Available moves from', sourceSquare, ':', tempGame.moves({ square: sourceSquare }));
+          console.log('❌ Available moves from', sourceSquare, ':', syncedGame.moves({ square: sourceSquare }));
           return false;
         }
 
-        // Apply the move to the synced game
-        const actualMove = syncedGame.move({
-          from: sourceSquare,
-          to: targetSquare,
-          promotion: move.promotion
-        });
+        console.log('✅ Valid move after resync:', move);
 
         // Send move to server
-        socket.emit('make-move', {
-          gameId,
-          move: {
-            from: sourceSquare,
-            to: targetSquare,
-            promotion: actualMove.promotion,
-            fen: syncedGame.fen(),
-            san: actualMove.san
-          }
-        });
+        if (process.env.NODE_ENV === 'production') {
+          // HTTP request for production
+          fetch(`/api/game/${gameId}/move`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              move: {
+                from: sourceSquare,
+                to: targetSquare,
+                promotion: move.promotion,
+                fen: syncedGame.fen(),
+                san: move.san
+              }
+            })
+          }).catch(error => console.error('Move error:', error));
+        } else {
+          // Socket.IO for development
+          socket.emit('make-move', {
+            gameId,
+            move: {
+              from: sourceSquare,
+              to: targetSquare,
+              promotion: move.promotion,
+              fen: syncedGame.fen(),
+              san: move.san
+            }
+          });
+        }
 
         return true;
       } catch (error) {
