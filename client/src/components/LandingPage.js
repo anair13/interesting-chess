@@ -11,7 +11,7 @@ const LandingPage = () => {
     setError('');
     
     try {
-      const response = await fetch('/api/new-game', {
+      const response = await fetch('/api/games/new', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

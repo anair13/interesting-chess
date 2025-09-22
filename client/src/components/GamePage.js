@@ -2,16 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
-import io from 'socket.io-client';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { supabase } from '../lib/supabase';
 
 const GamePage = () => {
   const { gameId } = useParams();
   const [searchParams] = useSearchParams();
   const isHost = searchParams.get('host') === 'true';
   
-  const [socket, setSocket] = useState(null);
   const [game, setGame] = useState(new Chess());
   const [gameData, setGameData] = useState(null);
   const [playerColor, setPlayerColor] = useState(null);
@@ -19,259 +18,185 @@ const GamePage = () => {
   const [error, setError] = useState('');
   const [shareLink, setShareLink] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
+  const [sessionId] = useState(`session-${Date.now()}-${Math.random()}`);
 
-  // Initialize connection (HTTP polling instead of Socket.IO in production)
+  // Initialize game and join
   useEffect(() => {
-    if (process.env.NODE_ENV === 'production') {
-      // Use HTTP polling in production instead of Socket.IO
-      console.log('🔌 Using HTTP polling for production');
-      setSocket({ emit: () => {}, on: () => {}, off: () => {} }); // Mock socket
-    } else {
-      // Use Socket.IO in development
-      const socketUrl = 'http://localhost:5000';
-      console.log('🔌 Connecting to Socket.IO at:', socketUrl);
-      const newSocket = io(socketUrl);
-      setSocket(newSocket);
-      
-      return () => {
-        newSocket.close();
-      };
-    }
-  }, []);
+    const initializeGame = async () => {
+      try {
+        console.log('🎮 Initializing game:', gameId);
+        
+        // Join the game
+        const response = await fetch(`/api/games/${gameId}/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            isHost,
+            sessionId 
+          })
+        });
 
-  // HTTP polling functions for production
-  const joinGameHTTP = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/game/${gameId}/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isHost })
-      });
-      
-      if (response.ok) {
+        if (!response.ok) {
+          throw new Error('Failed to join game');
+        }
+
         const data = await response.json();
+        console.log('🎮 Joined game:', data);
+        
         setGameData(data.gameData);
         setPlayerColor(data.playerColor);
-        setGameState('joined');
+        setGameState(data.gameData.game_state === 'active' ? 'active' : 'waiting');
         
-        const newGame = new Chess(data.gameData.currentFen);
+        // Initialize chess game with the position
+        const newGame = new Chess(data.gameData.current_fen);
         setGame(newGame);
         
-        // Start polling for updates
-        if (process.env.NODE_ENV === 'production') {
-          const pollInterval = setInterval(async () => {
-            try {
-              const response = await fetch(`/api/game/${gameId}`);
-              if (response.ok) {
-                const data = await response.json();
-                setGameData(data);
-                
-                // Update game state if FEN changed
-                if (data.currentFen !== game.fen()) {
-                  const newGame = new Chess(data.currentFen);
-                  setGame(newGame);
-                }
-                
-                if (data.gameState === 'active') {
-                  setGameState('active');
-                }
-              }
-            } catch (error) {
-              console.error('Polling error:', error);
-            }
-          }, 2000);
+        // Set share link
+        const currentUrl = window.location.origin + window.location.pathname;
+        setShareLink(currentUrl);
+        
+        console.log('🎮 Game initialized with FEN:', data.gameData.current_fen);
+        console.log('🎮 Player color:', data.playerColor);
+        
+      } catch (err) {
+        console.error('Failed to initialize game:', err);
+        setError('Failed to join game');
+        setGameState('error');
+      }
+    };
+
+    if (gameId) {
+      initializeGame();
+    }
+  }, [gameId, isHost, sessionId]);
+
+  // Set up real-time subscriptions
+  useEffect(() => {
+    if (!gameId) return;
+
+    console.log('🔔 Setting up real-time subscriptions for game:', gameId);
+
+    // Subscribe to game updates
+    const gameSubscription = supabase
+      .channel(`game-${gameId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'games',
+          filter: `id=eq.${gameId}`
+        },
+        (payload) => {
+          console.log('🔔 Game update received:', payload);
           
-          // Cleanup on unmount
-          return () => clearInterval(pollInterval);
+          if (payload.eventType === 'UPDATE') {
+            const updatedGame = payload.new;
+            
+            setGameData(prevData => ({
+              ...prevData,
+              current_turn: updatedGame.current_turn,
+              current_fen: updatedGame.current_fen,
+              game_state: updatedGame.game_state
+            }));
+            
+            // Update chess game state
+            const newGame = new Chess(updatedGame.current_fen);
+            setGame(newGame);
+            
+            // Update game state
+            if (updatedGame.game_state === 'active') {
+              setGameState('active');
+            }
+            
+            console.log('🔔 Updated game state with FEN:', updatedGame.current_fen);
+          }
         }
+      )
+      .subscribe();
+
+    // Subscribe to player updates
+    const playersSubscription = supabase
+      .channel(`players-${gameId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'players',
+          filter: `game_id=eq.${gameId}`
+        },
+        (payload) => {
+          console.log('🔔 Player update received:', payload);
+          
+          // Refresh game data to get updated players
+          refreshGameData();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to moves
+    const movesSubscription = supabase
+      .channel(`moves-${gameId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'moves',
+          filter: `game_id=eq.${gameId}`
+        },
+        (payload) => {
+          console.log('🔔 New move received:', payload);
+          
+          // The game update will handle the FEN change
+          // This is just for logging/notifications
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions
+    return () => {
+      console.log('🔔 Cleaning up subscriptions');
+      gameSubscription.unsubscribe();
+      playersSubscription.unsubscribe();
+      movesSubscription.unsubscribe();
+    };
+  }, [gameId]);
+
+  // Helper function to refresh game data
+  const refreshGameData = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/games/${gameId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setGameData(data);
       }
     } catch (error) {
-      console.error('Failed to join game:', error);
-      setError('Failed to join game');
+      console.error('Failed to refresh game data:', error);
     }
-  }, [gameId, isHost, game]);
+  }, [gameId]);
 
-  // Join game when socket is ready
-  useEffect(() => {
-    if (socket && gameId) {
-      if (process.env.NODE_ENV === 'production') {
-        // HTTP polling approach for production
-        joinGameHTTP();
-      } else {
-        // Socket.IO approach for development
-        socket.emit('join-game', { gameId, isHost });
-      }
-      
-      // Set share link
-      const currentUrl = window.location.origin + window.location.pathname;
-      setShareLink(currentUrl);
-    }
-  }, [socket, gameId, isHost, joinGameHTTP]);
-
-  // Socket event listeners
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('game-joined', (data) => {
-      console.log('🎮 Game joined:', data);
-      setGameData(data);
-      setPlayerColor(data.playerColor);
-      setGameState('joined');
-      
-      // Initialize chess game with the position
-      const newGame = new Chess(data.currentFen);
-      setGame(newGame);
-      console.log('🎮 Initialized game with FEN:', data.currentFen);
-      console.log('🎮 Game turn after init:', newGame.turn(), 'Player color:', data.playerColor);
-    });
-
-    socket.on('game-updated', (data) => {
-      console.log('🎮 Game updated:', data);
-      setGameData(data);
-      if (data.gameState === 'active') {
-        setGameState('active');
-      }
-      
-      // Sync game state when game updates
-      if (data.currentFen) {
-        const newGame = new Chess(data.currentFen);
-        setGame(newGame);
-        console.log('🎮 Synced game state with FEN:', data.currentFen);
-        console.log('🎮 Game turn after sync:', newGame.turn());
-      }
-    });
-
-    socket.on('move-made', (data) => {
-      console.log('🎮 Move made:', data);
-      const newGame = new Chess(data.gameState.currentFen);
-      setGame(newGame);
-      setGameData(data.gameState);
-      console.log('🎮 Updated game after move, FEN:', data.gameState.currentFen);
-      console.log('🎮 Game turn after move:', newGame.turn());
-    });
-
-    socket.on('player-disconnected', (data) => {
-      setGameData(data);
-      setGameState('waiting');
-    });
-
-    socket.on('error', (data) => {
-      setError(data.message);
-      setGameState('error');
-    });
-
-    return () => {
-      socket.off('game-joined');
-      socket.off('game-updated');
-      socket.off('move-made');
-      socket.off('player-disconnected');
-      socket.off('error');
-    };
-  }, [socket]);
-
-  const onDrop = useCallback((sourceSquare, targetSquare, piece) => {
+  // Handle piece drops (moves)
+  const onDrop = useCallback(async (sourceSquare, targetSquare, piece) => {
     console.log('🎯 onDrop called:', { sourceSquare, targetSquare, piece });
     console.log('🎯 Current game FEN:', game.fen());
     console.log('🎯 Game turn (chess.js):', game.turn(), 'Player color:', playerColor);
-    console.log('🎯 Server current turn:', gameData?.currentTurn);
+    console.log('🎯 Server current turn:', gameData?.current_turn);
     
-    // Check if game is active first
-    if (gameData.gameState !== 'active') {
+    // Check if game is active
+    if (!gameData || gameData.game_state !== 'active') {
       console.log('❌ Game not active');
       return false;
     }
 
-    // Use server state as the authoritative source for turns
-    if (!gameData || gameData.currentTurn !== playerColor) {
-      console.log('❌ Server says not your turn');
+    // Check if it's player's turn
+    if (gameData.current_turn !== playerColor) {
+      console.log('❌ Not your turn');
       return false;
     }
 
-    // If there's a mismatch between chess.js and server, sync the game state
-    const currentTurn = game.turn(); // 'w' for white, 'b' for black
-    const serverTurn = gameData.currentTurn === 'white' ? 'w' : 'b';
-    
-    if (currentTurn !== serverTurn) {
-      console.log('🔄 Game state out of sync! Resyncing...');
-      console.log('🔄 Chess.js turn:', currentTurn, 'Server turn:', serverTurn);
-      
-      // Resync the game state with server's FEN
-      const syncedGame = new Chess(gameData.currentFen);
-      setGame(syncedGame);
-      
-      console.log('🔄 Resynced game with FEN:', gameData.currentFen);
-      console.log('🔄 New game turn:', syncedGame.turn());
-      
-      // After resyncing, check if it's still the player's turn
-      if (syncedGame.turn() !== (playerColor === 'white' ? 'w' : 'b')) {
-        console.log('❌ Not your turn after resync');
-        return false;
-      }
-      
-      // Try the move with the synced game directly
-      try {
-        let move = syncedGame.move({
-          from: sourceSquare,
-          to: targetSquare
-        });
-
-        if (move === null && piece.toLowerCase().includes('p')) {
-          const toRank = targetSquare[1];
-          if ((playerColor === 'white' && toRank === '8') || (playerColor === 'black' && toRank === '1')) {
-            move = syncedGame.move({
-              from: sourceSquare,
-              to: targetSquare,
-              promotion: 'q'
-            });
-          }
-        }
-
-        if (move === null) {
-          console.log('❌ Invalid move after resync');
-          console.log('❌ Available moves from', sourceSquare, ':', syncedGame.moves({ square: sourceSquare }));
-          return false;
-        }
-
-        console.log('✅ Valid move after resync:', move);
-
-        // Send move to server
-        if (process.env.NODE_ENV === 'production') {
-          // HTTP request for production
-          fetch(`/api/game/${gameId}/move`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              move: {
-                from: sourceSquare,
-                to: targetSquare,
-                promotion: move.promotion,
-                fen: syncedGame.fen(),
-                san: move.san
-              }
-            })
-          }).catch(error => console.error('Move error:', error));
-        } else {
-          // Socket.IO for development
-          socket.emit('make-move', {
-            gameId,
-            move: {
-              from: sourceSquare,
-              to: targetSquare,
-              promotion: move.promotion,
-              fen: syncedGame.fen(),
-              san: move.san
-            }
-          });
-        }
-
-        return true;
-      } catch (error) {
-        console.error('Move error after resync:', error);
-        return false;
-      }
-    }
-
-    // Create a temporary game instance to test the move without affecting the main game
+    // Create a temporary game instance to test the move
     const tempGame = new Chess(game.fen());
     
     try {
@@ -301,7 +226,7 @@ const GamePage = () => {
 
       console.log('✅ Valid move:', move);
 
-      // Apply the move to the actual game
+      // Apply the move to the actual game (optimistic update)
       const actualMove = game.move({
         from: sourceSquare,
         to: targetSquare,
@@ -309,75 +234,41 @@ const GamePage = () => {
       });
 
       // Send move to server
-      if (process.env.NODE_ENV === 'production') {
-        // HTTP request for production
-        fetch(`/api/game/${gameId}/move`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            move: {
-              from: sourceSquare,
-              to: targetSquare,
-              promotion: actualMove.promotion,
-              fen: game.fen(),
-              san: actualMove.san
-            }
-          })
-        }).catch(error => console.error('Move error:', error));
-      } else {
-        // Socket.IO for development
-        socket.emit('make-move', {
-          gameId,
+      const response = await fetch(`/api/games/${gameId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           move: {
             from: sourceSquare,
             to: targetSquare,
             promotion: actualMove.promotion,
             fen: game.fen(),
             san: actualMove.san
-          }
-        });
+          },
+          sessionId
+        })
+      });
+
+      if (!response.ok) {
+        // Revert the optimistic update
+        setGame(new Chess(gameData.current_fen));
+        console.error('Move rejected by server');
+        return false;
       }
 
+      console.log('✅ Move accepted by server');
       return true;
+
     } catch (error) {
       console.error('Move error:', error);
-      console.log('❌ Game state might be out of sync');
       return false;
     }
-  }, [game, gameData, playerColor, socket, gameId]);
+  }, [game, gameData, playerColor, gameId, sessionId]);
 
-  // Add mouse event logging
-  const onPieceDragBegin = useCallback((piece, sourceSquare) => {
-    console.log('🖱️ Drag begin:', { piece, sourceSquare });
-    
-    // Add mouse event listener to track position during drag
-    const handleMouseMove = (e) => {
-      console.log('🖱️ Mouse during drag:', { x: e.clientX, y: e.clientY });
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    
-    // Clean up listener after a short time
-    setTimeout(() => {
-      document.removeEventListener('mousemove', handleMouseMove);
-    }, 100);
-  }, []);
-
-  const onPieceDragEnd = useCallback((piece, sourceSquare) => {
-    console.log('🖱️ Drag end:', { piece, sourceSquare });
-  }, []);
-
-  const onSquareClick = useCallback((square, e) => {
-    console.log('🖱️ Square clicked:', square);
-    if (e) {
-      console.log('🖱️ Mouse position at click:', { x: e.clientX, y: e.clientY });
-    }
-  }, []);
-
+  // Copy share link function
   const copyShareLink = () => {
     navigator.clipboard.writeText(shareLink).then(() => {
       setLinkCopied(true);
-      // Reset the copied state after 2 seconds
       setTimeout(() => setLinkCopied(false), 2000);
     }).catch(() => {
       // Fallback for older browsers
@@ -392,6 +283,7 @@ const GamePage = () => {
     });
   };
 
+  // Render loading state
   if (gameState === 'loading') {
     return (
       <div className="game-container">
@@ -400,6 +292,7 @@ const GamePage = () => {
     );
   }
 
+  // Render error state
   if (gameState === 'error') {
     return (
       <div className="game-container">
@@ -408,6 +301,7 @@ const GamePage = () => {
     );
   }
 
+  // Render connecting state
   if (!gameData) {
     return (
       <div className="game-container">
@@ -416,9 +310,9 @@ const GamePage = () => {
     );
   }
 
-  const isPlayerTurn = gameData.currentTurn === playerColor;
+  const isPlayerTurn = gameData.current_turn === playerColor;
   const opponentColor = playerColor === 'white' ? 'black' : 'white';
-  const opponentConnected = gameData.players[opponentColor];
+  const opponentConnected = gameData.players && gameData.players[opponentColor];
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -434,8 +328,8 @@ const GamePage = () => {
             </div>
             
             <div className="turn-indicator">
-              {gameData.gameState === 'waiting' ? 'Waiting for opponent...' :
-               isPlayerTurn ? 'Your turn' : `${gameData.currentTurn}'s turn`}
+              {gameData.game_state === 'waiting' ? 'Waiting for opponent...' :
+               isPlayerTurn ? 'Your turn' : `${gameData.current_turn}'s turn`}
             </div>
             
             <div className="player-info">
@@ -451,11 +345,8 @@ const GamePage = () => {
           <Chessboard
             position={game.fen()}
             onPieceDrop={onDrop}
-            onPieceDragBegin={onPieceDragBegin}
-            onPieceDragEnd={onPieceDragEnd}
-            onSquareClick={onSquareClick}
             boardOrientation={playerColor}
-            arePiecesDraggable={gameData.gameState === 'active' && isPlayerTurn}
+            arePiecesDraggable={gameData.game_state === 'active' && isPlayerTurn}
             boardWidth={Math.min(500, window.innerWidth - 40)}
             customBoardStyle={{
               borderRadius: '8px',
@@ -464,15 +355,11 @@ const GamePage = () => {
             customDropSquareStyle={{
               boxShadow: 'inset 0 0 1px 6px rgba(255,255,255,0.75)'
             }}
-            customDragLayerStyle={{
-              cursor: 'grabbing'
-            }}
             id="chess-board"
-            snapToCursor={false}
           />
         </div>
 
-        {gameData.gameState === 'waiting' && (
+        {gameData.game_state === 'waiting' && (
           <div className="share-link-container">
             <h3 className="share-link-title">Share this link with your friend:</h3>
             <input

@@ -2,16 +2,37 @@
   "version": 2,
   "builds": [
     {
-      "src": "server.js",
+      "src": "client/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    },
+    {
+      "src": "api/**/*.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/client/build/static/$1"
+    },
+    {
+      "src": "/game/(.*)",
+      "dest": "/client/build/index.html"
+    },
+    {
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
+      "dest": "/client/build/$1"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/server.js"
+      "dest": "/client/build/index.html"
     }
-  ],
-  "installCommand": "npm install && cd client && npm install",
-  "buildCommand": "npm run build"
+  ]
 }
