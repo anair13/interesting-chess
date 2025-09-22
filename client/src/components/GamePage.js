@@ -70,6 +70,19 @@ const GamePage = () => {
     }
   }, [gameId, isHost, sessionId]);
 
+  // Helper function to refresh game data
+  const refreshGameData = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/games/${gameId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setGameData(data);
+      }
+    } catch (error) {
+      console.error('Failed to refresh game data:', error);
+    }
+  }, [gameId]);
+
   // Set up real-time subscriptions
   useEffect(() => {
     if (!gameId) return;
@@ -162,20 +175,7 @@ const GamePage = () => {
       playersSubscription.unsubscribe();
       movesSubscription.unsubscribe();
     };
-  }, [gameId]);
-
-  // Helper function to refresh game data
-  const refreshGameData = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/games/${gameId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setGameData(data);
-      }
-    } catch (error) {
-      console.error('Failed to refresh game data:', error);
-    }
-  }, [gameId]);
+  }, [gameId, refreshGameData]);
 
   // Handle piece drops (moves)
   const onDrop = useCallback(async (sourceSquare, targetSquare, piece) => {

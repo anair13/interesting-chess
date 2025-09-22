@@ -1,24 +1,21 @@
 # Database Setup Instructions
 
-## 1. Set up your environment file
+## 1. Set up your environment files
 
-Create `.env.local` in the root directory with your Supabase credentials:
+### For the React app (client/.env.local):
+Create `client/.env.local` with React-specific variables:
 
 ```bash
-# Copy and paste your Supabase environment variables here
-POSTGRES_URL="postgres://postgres.jmxkyjsfpuvdxolfoqkf:zfmVubXt3LRpwW9d@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x"
-POSTGRES_USER="postgres"
-POSTGRES_HOST="db.jmxkyjsfpuvdxolfoqkf.supabase.co"
-SUPABASE_JWT_SECRET="dN5M0Ivzlrl9tTmU8N337rTHRY8YkEWt8Yonx0OBbtpKbTQEWZi4SGvw5Pxuncf+Kl4pDQFne1evK50hBC9ukA=="
-NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpteGt5anNmcHV2ZHhvbGZvcWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MTc3MDMsImV4cCI6MjA3NDA5MzcwM30.KwqUO_4n15w-kgcm5PSl27fPYj8kc5-MzQgCigIBvj4"
-POSTGRES_PRISMA_URL="postgres://postgres.jmxkyjsfpuvdxolfoqkf:zfmVubXt3LRpwW9d@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true"
-POSTGRES_PASSWORD="zfmVubXt3LRpwW9d"
-POSTGRES_DATABASE="postgres"
-SUPABASE_URL="https://jmxkyjsfpuvdxolfoqkf.supabase.co"
-SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpteGt5anNmcHV2ZHhvbGZvcWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MTc3MDMsImV4cCI6MjA3NDA5MzcwM30.KwqUO_4n15w-kgcm5PSl27fPYj8kc5-MzQgCigIBvj4"
-NEXT_PUBLIC_SUPABASE_URL="https://jmxkyjsfpuvdxolfoqkf.supabase.co"
-SUPABASE_SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpteGt5anNmcHV2ZHhvbGZvcWtmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODUxNzcwMywiZXhwIjoyMDc0MDkzNzAzfQ.JsVxALk4xXTNXtl9I6yKgg9_p3Ufg02NEZFqrDA3Ouw"
-POSTGRES_URL_NON_POOLING="postgres://postgres.jmxkyjsfpuvdxolfoqkf:zfmVubXt3LRpwW9d@aws-1-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require"
+REACT_APP_SUPABASE_URL=https://jmxkyjsfpuvdxolfoqkf.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpteGt5anNmcHV2ZHhvbGZvcWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MTc3MDMsImV4cCI6MjA3NDA5MzcwM30.KwqUO_4n15w-kgcm5PSl27fPYj8kc5-MzQgCigIBvj4
+```
+
+### For the API routes (.env.local):
+Create `.env.local` in the root directory for API routes:
+
+```bash
+SUPABASE_URL=https://jmxkyjsfpuvdxolfoqkf.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpteGt5anNmcHV2ZHhvbGZvcWtmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODUxNzcwMywiZXhwIjoyMDc0MDkzNzAzfQ.JsVxALk4xXTNXtl9I6yKgg9_p3Ufg02NEZFqrDA3Ouw
 ```
 
 ## 2. Set up the database schema
