@@ -324,8 +324,13 @@ io.on('connection', (socket) => {
   });
 });
 
-// Serve React app for all other routes
+// Serve React app for all other routes (including /game/:gameId)
 app.get('*', (req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
   res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
 });
 

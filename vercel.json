@@ -23,8 +23,28 @@
       "dest": "/server.js"
     },
     {
-      "src": "/(.*)",
+      "src": "/static/(.*)",
+      "dest": "/client/build/static/$1"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/client/build/favicon.ico"
+    },
+    {
+      "src": "/manifest.json",
+      "dest": "/client/build/manifest.json"
+    },
+    {
+      "src": "/game/(.*)",
       "dest": "/client/build/index.html"
+    },
+    {
+      "src": "/",
+      "dest": "/client/build/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/server.js"
     }
   ]
 }
