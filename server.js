@@ -32,6 +32,8 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Serve static files from client/build
 app.use(express.static(path.join(__dirname, 'client/build')));
 
 // Function to load a random position from sharded files
@@ -326,12 +328,15 @@ io.on('connection', (socket) => {
 
 // Serve React app for all other routes (including /game/:gameId)
 app.get('*', (req, res) => {
-  // Don't serve index.html for API routes
+  // Don't serve index.html for API routes that don't exist
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API endpoint not found' });
   }
   
-  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+  // Serve the React app for all other routes
+  const indexPath = path.join(__dirname, 'client/build', 'index.html');
+  console.log('Serving React app for route:', req.path, 'from:', indexPath);
+  res.sendFile(indexPath);
 });
 
 const PORT = process.env.PORT || 5000;

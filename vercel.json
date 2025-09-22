@@ -2,49 +2,16 @@
   "version": 2,
   "builds": [
     {
-      "src": "build.sh",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "client/build"
-      }
-    },
-    {
       "src": "server.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/server.js"
-    },
-    {
-      "src": "/socket.io/(.*)",
-      "dest": "/server.js"
-    },
-    {
-      "src": "/static/(.*)",
-      "dest": "/client/build/static/$1"
-    },
-    {
-      "src": "/favicon.ico",
-      "dest": "/client/build/favicon.ico"
-    },
-    {
-      "src": "/manifest.json",
-      "dest": "/client/build/manifest.json"
-    },
-    {
-      "src": "/game/(.*)",
-      "dest": "/client/build/index.html"
-    },
-    {
-      "src": "/",
-      "dest": "/client/build/index.html"
-    },
-    {
       "src": "/(.*)",
       "dest": "/server.js"
     }
-  ]
+  ],
+  "installCommand": "npm install && cd client && npm install",
+  "buildCommand": "npm run build"
 }
