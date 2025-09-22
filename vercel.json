@@ -4,6 +4,13 @@
     {
       "src": "server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "client/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
     }
   ],
   "routes": [
@@ -16,10 +23,20 @@
       "dest": "/server.js"
     },
     {
+      "src": "/static/(.*)",
+      "dest": "/client/build/static/$1"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/client/build/favicon.ico"
+    },
+    {
+      "src": "/manifest.json",
+      "dest": "/client/build/manifest.json"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/server.js"
+      "dest": "/client/build/index.html"
     }
-  ],
-  "installCommand": "npm install && cd client && npm install",
-  "buildCommand": "npm run build"
+  ]
 }

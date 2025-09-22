@@ -10,14 +10,20 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: process.env.NODE_ENV === 'production' 
+      ? ["https://*.vercel.app", "https://your-domain.com"] 
+      : "http://localhost:3000",
     methods: ["GET", "POST"]
   }
 });
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'client/build')));
+
+// Only serve static files in development
+if (process.env.NODE_ENV !== 'production') {
+  app.use(express.static(path.join(__dirname, 'client/build')));
+}
 
 // Function to load a random position from sharded files
 const getRandomPosition = () => {
@@ -265,10 +271,12 @@ io.on('connection', (socket) => {
   });
 });
 
-// Serve React app for all other routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
-});
+// Only serve React app in development
+if (process.env.NODE_ENV !== 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+  });
+}
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
