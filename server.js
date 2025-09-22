@@ -11,13 +11,19 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? true  // Allow all origins in production for now
+      ? ["https://interesting-chess.vercel.app", "https://*.vercel.app"]
       : "http://localhost:3000",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ["https://interesting-chess.vercel.app", "https://*.vercel.app"]
+    : "http://localhost:3000",
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'client/build')));
 

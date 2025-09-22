@@ -22,7 +22,13 @@ const GamePage = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    const newSocket = io('http://localhost:5000');
+    // Use the current domain in production, localhost in development
+    const socketUrl = process.env.NODE_ENV === 'production' 
+      ? window.location.origin 
+      : 'http://localhost:5000';
+    
+    console.log('🔌 Connecting to Socket.IO at:', socketUrl);
+    const newSocket = io(socketUrl);
     setSocket(newSocket);
 
     return () => {
